@@ -1,0 +1,109 @@
+<header class="student-header">
+    <div class="header-brand">
+        <img src="assets/logo/logo.png" alt="Preicfes" class="header-logo">
+        <div class="header-title">
+            <h1>Panel del Estudiante</h1>
+            <span>Simulacros tipo Saber 11°</span>
+        </div>
+    </div>
+
+    <div class="header-right">
+        @if (resumen()) {
+            <div class="user-chip">
+                <div class="user-avatar">
+                    {{ resumen()!.nombres.charAt(0) }}{{ resumen()!.apellidos.charAt(0) }}
+                </div>
+                <div class="user-info">
+                    <span class="user-name">{{ resumen()!.nombres }} {{ resumen()!.apellidos }}</span>
+                    <span class="user-role">Estudiante</span>
+                </div>
+            </div>
+        }
+        <a href="#" (click)="logout($event)" class="logout">
+            <span class="logout-icon">⏻</span>
+            Cerrar sesión
+        </a>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- ESTADÍSTICAS RÁPIDAS -->
+    <section class="summary">
+        @if (isLoadingResumen()) {
+            <p>Cargando estadísticas...</p>
+        } @else if (resumen()) {
+            <div class="summary-card">
+                <span class="card-icon">📝</span>
+                <h3>Simulacros realizados</h3>
+                <p class="big">{{ resumen()!.simulacrosRealizados }}</p>
+            </div>
+
+            <div class="summary-card">
+                <span class="card-icon">🎯</span>
+                <h3>Puntaje promedio</h3>
+                <p class="big">{{ resumen()!.puntajePromedio | number:'1.0-0' }}</p>
+            </div>
+
+            <div class="summary-card">
+                <span class="card-icon">⏱️</span>
+                <h3>Tiempo promedio</h3>
+                <p class="big">{{ resumen()!.tiempoPromedioSegundos | number:'1.0-0' }} s</p>
+            </div>
+        }
+    </section>
+
+    <!-- LISTA DE SIMULACROS -->
+    <section class="section">
+        <div class="section-header">
+            <h2>Mis simulacros</h2>
+            <div class="section-line"></div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Simulacro</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Puntaje</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (isLoadingSimulacros()) {
+                        <tr><td colspan="6">Cargando simulacros...</td></tr>
+                    } @else if (simulacros().length === 0) {
+                        <tr><td colspan="6">No tienes simulacros asignados aún.</td></tr>
+                    } @else {
+                        @for (sim of simulacros(); track sim.idSimulacro) {
+                            <tr>
+                                <td>{{ sim.idSimulacro }}</td>
+                                <td>{{ sim.nombre }}</td>
+                                <td>{{ sim.fecha | date:'mediumDate' }}</td>
+                                <td [class.done]="sim.estado === 'REALIZADO'" [class.pending]="sim.estado !== 'REALIZADO'">
+                                    {{ sim.estado | titlecase }}
+                                </td>
+                                <td>{{ sim.estado === 'REALIZADO' ? (sim.puntaje | number:'1.0-0') : '—' }}</td>
+                                <td>
+                                    @if (sim.estado === 'REALIZADO') {
+                                        <button class="btn-primary" (click)="goToStats(sim.idSimulacro)">
+                                            📊 Ver estadísticas
+                                        </button>
+                                    } @else {
+                                        <button class="btn-secondary" (click)="startTest(sim.idSimulacro)">
+                                            📝 Realizar test
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</main>

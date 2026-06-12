@@ -1,0 +1,142 @@
+.login-container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #1f2a63, #2f5fd0);
+    font-family: 'Poppins', sans-serif;
+}
+
+.login-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 35px;
+    border-radius: 20px;
+    text-align: center;
+    animation: fadeIn 0.9s ease;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+}
+
+.login-logo {
+    width: 120px;
+    margin-bottom: 15px;
+}
+
+.login-card h1 {
+    color: #1f2a63;
+    margin-bottom: 5px;
+}
+
+.login-subtitle {
+    color: #555;
+    margin-bottom: 30px;
+    font-size: 0.95rem;
+}
+
+.input-group {
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: #1f2a63;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #ccc;
+    outline: none;
+    font-size: 0.95rem;
+    transition: 0.3s;
+}
+
+.input-group input:focus {
+    border-color: #2f5fd0;
+}
+
+.input-group input.is-invalid {
+    border-color: #dc3545;
+}
+
+.error-text {
+    color: #dc3545;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: block;
+}
+
+.error-alert {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+.btn-login {
+    width: 100%;
+    margin-top: 10px;
+    padding: 14px;
+    border: none;
+    border-radius: 30px;
+    background: #f4c430;
+    color: #1f2a63;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-login:hover:not(:disabled) {
+    background: #ffd95a;
+}
+
+.btn-login:disabled {
+    background: #e0e0e0;
+    color: #a0a0a0;
+    cursor: not-allowed;
+}
+
+.info-text {
+    margin-top: 25px;
+    font-size: 0.85rem;
+    color: #555;
+    background-color: #f0f4ff;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    text-align: left;
+    border-left: 4px solid #2f5fd0;
+}
+
+.info-text p {
+    margin: 0;
+    line-height: 1.4;
+}
+
+.info-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

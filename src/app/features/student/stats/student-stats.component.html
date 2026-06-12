@@ -1,0 +1,133 @@
+<!-- HEADER -->
+<header class="stats-header">
+    <div class="header-left">
+        <button class="btn-back" (click)="goBack()">← Volver</button>
+        <div>
+            <h1>Estadísticas del Estudiante</h1>
+            <span>Análisis de desempeño · Saber 11°</span>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+
+    @if (isLoading()) {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Cargando estadísticas...</p>
+        </div>
+    } @else if (estadisticas()) {
+
+        <!-- RESUMEN GLOBAL -->
+        <section class="summary-cards">
+            <div class="summary-card">
+                <span class="card-icon">🏆</span>
+                <h3>Puntaje global</h3>
+                <p class="big">{{ estadisticas()!.puntajeGlobal | number:'1.0-0' }}</p>
+                <span class="card-sub">de 500 puntos</span>
+            </div>
+
+            <div class="summary-card">
+                <span class="card-icon">🌍</span>
+                <h3>Percentil nacional</h3>
+                <p class="big">{{ estadisticas()!.porcentajeNacional | number:'1.0-1' }}%</p>
+                <span class="card-sub">respecto a Colombia</span>
+            </div>
+
+            <div class="summary-card">
+                <span class="card-icon">⏱️</span>
+                <h3>Tiempo promedio</h3>
+                <p class="big">{{ estadisticas()!.tiempoPromedioSegundos | number:'1.0-0' }} s</p>
+                <span class="card-sub">por pregunta</span>
+            </div>
+        </section>
+
+        <!-- RADAR DESEMPEÑO POR ASIGNATURA -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-icon">📊</div>
+                <div>
+                    <h2>Desempeño por asignatura</h2>
+                    <p class="section-desc">Puntaje promedio (0 – 100) en cada área del ICFES</p>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-box">
+                    <canvas id="radarAsignaturas"></canvas>
+                </div>
+                <!-- Leyenda manual -->
+                <div class="legend-grid">
+                    @for (item of estadisticas()!.desempenoPorAsignatura; track item.idArea) {
+                        <div class="legend-item">
+                            <div class="legend-bar-wrap">
+                                <span class="legend-label">{{ item.asignatura | titlecase }}</span>
+                                <div class="legend-progress-track">
+                                    <div class="legend-progress-fill"
+                                         [style.width.%]="item.puntajePromedio"
+                                         [class.high]="item.puntajePromedio >= 70"
+                                         [class.mid]="item.puntajePromedio >= 40 && item.puntajePromedio < 70"
+                                         [class.low]="item.puntajePromedio < 40">
+                                    </div>
+                                </div>
+                                <span class="legend-value">{{ item.puntajePromedio | number:'1.0-0' }}</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <!-- BAR TIEMPO POR ASIGNATURA -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-icon">⏳</div>
+                <div>
+                    <h2>Tiempo promedio por asignatura</h2>
+                    <p class="section-desc">Segundos promedio invertidos por pregunta en cada área</p>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-box">
+                    <canvas id="barTiempo"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESULTADOS POR SIMULACRO -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-icon">📝</div>
+                <div>
+                    <h2>Resultados por simulacro</h2>
+                    <p class="section-desc">Desglose de puntaje por área en cada simulacro realizado</p>
+                </div>
+            </div>
+
+            <div class="simulacros-grid">
+                @for (group of simulacroGroups(); track group.idSimulacro) {
+                    <div class="chart-card simulacro-card">
+                        <div class="simulacro-card-header">
+                            <span class="simulacro-num">#{{ group.idSimulacro }}</span>
+                            <h3>{{ group.simulacro }}</h3>
+                        </div>
+                        <div class="chart-box simulacro-box">
+                            <canvas [id]="'simulacro-canvas-' + group.idSimulacro"></canvas>
+                        </div>
+                        <div class="simulacro-footer">
+                            <span class="score-label">
+                                Promedio:
+                                <strong>{{ avgPuntaje(group.items) | number:'1.0-1' }}</strong>
+                            </span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+    } @else {
+        <div class="empty-state">
+            <p>No se pudieron cargar las estadísticas. Intenta más tarde.</p>
+        </div>
+    }
+
+</main>
