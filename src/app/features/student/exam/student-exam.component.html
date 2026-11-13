@@ -1,0 +1,201 @@
+<!-- ══════════════════════════════════════════════
+     FASE: CÓDIGO DE ACCESO
+════════════════════════════════════════════════ -->
+@if (phase() === 'code') {
+  <div class="code-screen">
+    <div class="code-card">
+      <div class="code-card-header">
+        <span class="lock-icon">🔐</span>
+        <h1>Acceder al Simulacro</h1>
+        <p>Ingresa el código de acceso proporcionado por tu docente</p>
+      </div>
+
+      @if (errorMsg()) {
+        <div class="error-alert">{{ errorMsg() }}</div>
+      }
+
+      <form [formGroup]="codeForm" (ngSubmit)="submitCode()">
+        <div class="code-input-wrap">
+          <input
+            id="codigoAcceso"
+            type="text"
+            formControlName="codigoAcceso"
+            placeholder="Ej: 12345"
+            autocomplete="off"
+            [class.invalid]="codeForm.get('codigoAcceso')?.invalid && codeForm.get('codigoAcceso')?.touched"
+          >
+          @if (codeForm.get('codigoAcceso')?.invalid && codeForm.get('codigoAcceso')?.touched) {
+            <span class="field-error">El código es obligatorio</span>
+          }
+        </div>
+        <button type="submit" class="btn-start">Iniciar simulacro →</button>
+        <button type="button" class="btn-back" (click)="goToDashboard()">← Volver al inicio</button>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════
+     FASE: CARGANDO
+════════════════════════════════════════════════ -->
+@if (phase() === 'loading') {
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <p>Iniciando simulacro...</p>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════
+     FASE: EXAMEN EN CURSO
+════════════════════════════════════════════════ -->
+@if (phase() === 'exam') {
+  <!-- Header fijo -->
+  <header class="exam-header">
+    <div class="exam-header-left">
+      <h1>{{ simulacroNombre() }}</h1>
+      @if (areaActual()) {
+        <span class="area-badge">{{ formatAreaName(areaActual().nombre) }}</span>
+      }
+    </div>
+    <div class="exam-header-right">
+      <div class="timer-chip">
+        ⏱ {{ timerDisplay() }}
+      </div>
+    </div>
+  </header>
+
+  <div class="exam-layout">
+
+    <!-- ── Sidebar de Áreas ── -->
+    <aside class="areas-sidebar">
+      <h3>Áreas</h3>
+      <ul class="areas-list">
+        @for (area of areas(); track area.idArea; let i = $index) {
+          <li
+            class="area-item"
+            [class.active]="areaActualIdx() === i">
+            <div class="area-item-name">{{ formatAreaName(area.nombre) }}</div>
+            <div class="area-item-progress">
+              <span class="area-resp-count">{{ respondiasPorArea(area.idArea) }}/{{ area.totalPreguntas }}</span>
+              <div class="mini-bar">
+                <div class="mini-bar-fill"
+                  [style.width.%]="area.totalPreguntas > 0 ? (respondiasPorArea(area.idArea) / area.totalPreguntas * 100) : 0">
+                </div>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    </aside>
+
+    <!-- ── Zona de Preguntas ── -->
+    <main class="question-zone">
+
+      @if (loadingPregs()) {
+        <div class="loading-pregs">
+          <div class="spinner"></div>
+          <p>Cargando preguntas...</p>
+        </div>
+      } @else if (preguntas().length === 0) {
+        <div class="empty-pregs">No hay preguntas disponibles para esta área.</div>
+      } @else {
+
+        <!-- Barra de progreso del área -->
+        <div class="progress-bar-wrap">
+          <div class="progress-info">
+            <span>Pregunta <strong>{{ preguntaIdx() + 1 }}</strong> de <strong>{{ preguntas().length }}</strong></span>
+            <span class="resp-badge">{{ respondidas() }} respondidas</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" [style.width.%]="progresoArea()"></div>
+          </div>
+        </div>
+
+        <!-- Tarjeta de pregunta -->
+        @if (preguntaActual()) {
+          <div class="question-card">
+
+            <!-- Caso (texto de lectura crítica) -->
+            @if (preguntaActual().caso) {
+              <div class="caso-box">
+                <div class="caso-label">📖 Texto de referencia</div>
+                <p class="caso-text">{{ preguntaActual().caso }}</p>
+              </div>
+            }
+
+            <!-- Imagen si aplica -->
+            @if (preguntaActual().rutaImagen) {
+              <img [src]="preguntaActual().rutaImagen" alt="Imagen de la pregunta" class="question-img">
+            }
+
+            <div class="question-body">
+              <div class="question-num">Pregunta {{ preguntaIdx() + 1 }}</div>
+              <h2 class="question-text">{{ preguntaActual().enunciado }}</h2>
+
+              <ul class="options-list">
+                @for (op of preguntaActual().opciones; track op.idOpcion) {
+                  <li class="option-item">
+                    <input
+                      type="radio"
+                      [id]="'op-' + op.idOpcion"
+                      [name]="'preg-' + preguntaActual().idPregunta"
+                      [value]="op.idOpcion"
+                      [checked]="respuestaActual()?.idOpcion === op.idOpcion"
+                      (change)="seleccionarOpcion(op.idOpcion)"
+                    >
+                    <label
+                      [for]="'op-' + op.idOpcion"
+                      [class.selected]="respuestaActual()?.idOpcion === op.idOpcion">
+                      <span class="option-letter">{{ $index | optionLetter }}</span>
+                      {{ op.texto }}
+                    </label>
+                  </li>
+                }
+              </ul>
+            </div>
+          </div>
+        }
+
+        <!-- Controles de navegación -->
+        <div class="nav-controls">
+          <button class="btn-nav btn-prev" (click)="prevPregunta()" [disabled]="preguntaIdx() === 0 || isSaving()">
+            ⬅ Anterior
+          </button>
+
+          <button class="btn-nav btn-next" (click)="nextPregunta()" [disabled]="isSaving() || !respuestaActual()">
+            {{ (preguntaIdx() === preguntas().length - 1) ? (isLastArea() ? 'Finalizar Simulacro ➡' : 'Siguiente Área ➡') : 'Siguiente ➡' }}
+          </button>
+        </div>
+
+      }
+    </main>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════
+     FASE: GUARDANDO / FINALIZANDO
+════════════════════════════════════════════════ -->
+@if (phase() === 'saving') {
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <p>Enviando respuestas y calculando resultados...</p>
+    <small>Por favor no cierres esta ventana</small>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════
+     FASE: FINALIZADO
+════════════════════════════════════════════════ -->
+@if (phase() === 'done') {
+  <div class="done-screen">
+    <div class="done-card">
+      <div class="done-emoji">🎉</div>
+      <h1>¡Simulacro completado!</h1>
+      <p>Tus respuestas han sido enviadas y el sistema está calculando tu puntaje.</p>
+      <p class="done-sub">Podrás ver tus resultados en el panel de estadísticas.</p>
+      <button class="btn-dashboard" (click)="goToDashboard()">
+        Ir al panel de inicio
+      </button>
+    </div>
+  </div>
+}

@@ -8,5 +8,9 @@ export const STUDENT_ROUTES: Routes = [
   {
     path: 'stats',
     loadComponent: () => import('./stats/student-stats.component').then(m => m.StudentStatsComponent)
+  },
+  {
+    path: 'exam/:idSimulacro',
+    loadComponent: () => import('./exam/student-exam.component').then(m => m.StudentExamComponent)
   }
 ];
