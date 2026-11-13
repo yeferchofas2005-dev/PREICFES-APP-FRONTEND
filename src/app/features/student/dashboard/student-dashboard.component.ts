@@ -57,7 +57,7 @@ export class StudentDashboardComponent implements OnInit {
   logout(event: Event) {
     event.preventDefault();
     this.authService.logout();
-    this.router.navigate(['/login']);
+    this.router.navigate(['/auth/login']);
   }
 
   goToStats(id: number) {
@@ -65,8 +65,7 @@ export class StudentDashboardComponent implements OnInit {
   }
 
   startTest(id: number) {
-    console.log('Iniciando simulacro', id);
-    // Future route: this.router.navigate(['/student/test', id]);
+    this.router.navigate(['/student/exam', id]);
   }
 
   formatTime(seconds: number): string {

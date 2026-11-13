@@ -44,9 +44,9 @@ export class LoginComponent {
           } else if (roleName === 'PROFESOR') {
             // Future route: this.router.navigate(['/teacher']);
             console.log('Login exitoso: PROFESOR');
-          } else if (roleName === 'ADMINISTRADOR') {
+          } else if (roleName === 'ADMIN') {
             // Future route: this.router.navigate(['/admin']);
-            console.log('Login exitoso: ADMINISTRADOR');
+            console.log('Login exitoso: ADMIN');
           } else if (roleName === 'DIRECTIVO') {
             // Future route: this.router.navigate(['/director']);
             console.log('Login exitoso: DIRECTIVO');
