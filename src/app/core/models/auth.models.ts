@@ -3,6 +3,12 @@ export interface Rol {
   nombre: string;
 }
 
+export interface NodoSimple {
+  idNodo: number;
+  nombre: string;
+  localidad?: string | null;
+}
+
 export interface Usuario {
   idUsuario: number;
   nombres: string;
@@ -12,6 +18,7 @@ export interface Usuario {
   telefono: string;
   activo: boolean;
   rol: Rol;
+  nodo?: NodoSimple | null;
 }
 
 export interface AuthResponse {

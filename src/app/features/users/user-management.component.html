@@ -1,0 +1,253 @@
+<div class="mgmt-wrapper">
+  <header class="mgmt-header">
+    <div class="header-left">
+      <button type="button" class="btn-back" (click)="volverAlPanel()">← Volver al panel</button>
+      <div>
+        <span class="scope-badge">{{ isAdmin() ? 'Administrador' : 'Coordinador de Nodo' }}</span>
+        <h1>Gestión de Usuarios</h1>
+      </div>
+    </div>
+    <div class="header-right">
+      <button type="button" class="btn-primary" (click)="abrirModalCrear()">+ Nuevo usuario</button>
+      <button type="button" class="btn-outline" (click)="logout()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="mgmt-main">
+    @if (exitoMensaje()) {
+      <div class="alert alert-success">{{ exitoMensaje() }}</div>
+    }
+    @if (errorMensaje()) {
+      <div class="alert alert-error">{{ errorMensaje() }}</div>
+    }
+
+    <section class="filters-card">
+      <div class="filter-field filter-search">
+        <label for="busqueda">Buscar</label>
+        <input
+          id="busqueda"
+          type="text"
+          [value]="filtroBusqueda()"
+          (input)="onBusquedaInput($any($event.target).value)"
+          placeholder="Nombre, apellido, documento o correo..."
+        />
+      </div>
+
+      <div class="filter-field">
+        <label for="filtroRol">Rol</label>
+        <select id="filtroRol" [value]="filtroIdRol() ?? ''" (change)="onRolFilterChange($any($event.target).value)">
+          <option value="">Todos</option>
+          @for (r of catalogos().roles; track r.idRol) {
+            <option [value]="r.idRol">{{ r.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      @if (isAdmin()) {
+        <div class="filter-field">
+          <label for="filtroNodo">Nodo</label>
+          <select id="filtroNodo" [value]="filtroIdNodo() ?? ''" (change)="onNodoFilterChange($any($event.target).value)">
+            <option value="">Todos</option>
+            @for (n of catalogos().nodos; track n.idNodo) {
+              <option [value]="n.idNodo">{{ n.nombre }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <div class="filter-field">
+        <label for="filtroEstado">Estado</label>
+        <select
+          id="filtroEstado"
+          [value]="filtroActivo() === null ? '' : (filtroActivo() ? 'true' : 'false')"
+          (change)="onEstadoFilterChange($any($event.target).value)"
+        >
+          <option value="">Todos</option>
+          <option value="true">Activos</option>
+          <option value="false">Inactivos</option>
+        </select>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
+      </div>
+    </section>
+
+    <section class="table-card">
+      @if (cargando()) {
+        <div class="empty-state">Cargando usuarios...</div>
+      } @else if (usuarios().length === 0) {
+        <div class="empty-state">No se encontraron usuarios con los filtros aplicados.</div>
+      } @else {
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre completo</th>
+                <th>Documento</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Nodo</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of usuarios(); track u.idUsuario) {
+                <tr>
+                  <td>
+                    <div class="user-fullname">{{ u.nombres }} {{ u.apellidos }}</div>
+                    @if (u.telefono) {
+                      <div class="user-phone">Tel: {{ u.telefono }}</div>
+                    }
+                  </td>
+                  <td>{{ u.documento }}</td>
+                  <td>{{ u.correo }}</td>
+                  <td>
+                    <span class="role-pill">{{ u.rol.nombre }}</span>
+                  </td>
+                  <td>{{ u.nodo?.nombre || 'Global (Sin nodo)' }}</td>
+                  <td>
+                    <span class="status-pill" [class.active]="u.activo" [class.inactive]="!u.activo">
+                      {{ u.activo ? 'Activo' : 'Inactivo' }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button type="button" class="btn-sm btn-edit" (click)="abrirModalEditar(u)">Editar</button>
+                    <button
+                      type="button"
+                      class="btn-sm"
+                      [class.btn-deactivate]="u.activo"
+                      [class.btn-activate]="!u.activo"
+                      [disabled]="cambiandoEstadoId() === u.idUsuario || (u.idUsuario === currentUserId() && u.activo)"
+                      (click)="toggleEstado(u)"
+                    >
+                      {{ u.activo ? 'Inactivar' : 'Activar' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-bar">
+          <span class="pagination-info">
+            Mostrando {{ usuarios().length }} de {{ totalElementos() }} usuarios (Página {{ paginaActual() + 1 }} de {{ totalPaginas() || 1 }})
+          </span>
+          <div class="pagination-buttons">
+            <button
+              type="button"
+              class="btn-secondary"
+              [disabled]="paginaActual() <= 0"
+              (click)="cambiarPagina(paginaActual() - 1)"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              class="btn-secondary"
+              [disabled]="paginaActual() + 1 >= totalPaginas()"
+              (click)="cambiarPagina(paginaActual() + 1)"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      }
+    </section>
+  </main>
+
+  @if (modalAbierto()) {
+    <div class="modal-backdrop" (click)="cerrarModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>{{ usuarioEditando() ? 'Editar usuario' : 'Crear nuevo usuario' }}</h2>
+          <button type="button" class="btn-close" (click)="cerrarModal()">✕</button>
+        </div>
+
+        @if (modalError()) {
+          <div class="alert alert-error">{{ modalError() }}</div>
+        }
+
+        <form [formGroup]="userForm" (ngSubmit)="guardarUsuario()" class="modal-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="nombres">Nombres *</label>
+              <input id="nombres" type="text" formControlName="nombres" />
+            </div>
+
+            <div class="form-group">
+              <label for="apellidos">Apellidos *</label>
+              <input id="apellidos" type="text" formControlName="apellidos" />
+            </div>
+
+            <div class="form-group">
+              <label for="documento">Documento *</label>
+              <input id="documento" type="text" formControlName="documento" />
+            </div>
+
+            <div class="form-group">
+              <label for="telefono">Teléfono</label>
+              <input id="telefono" type="text" formControlName="telefono" />
+            </div>
+
+            <div class="form-group full-width">
+              <label for="correo">Correo electrónico *</label>
+              <input id="correo" type="email" formControlName="correo" />
+            </div>
+
+            <div class="form-group">
+              <label for="idRol">Rol *</label>
+              <select id="idRol" formControlName="idRol">
+                <option [ngValue]="null">Seleccione un rol</option>
+                @for (r of catalogos().roles; track r.idRol) {
+                  <option [ngValue]="r.idRol">{{ r.nombre }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="idNodo">
+                Nodo {{ rolSeleccionadoRequiereNodo() ? '*' : '(Opcional)' }}
+              </label>
+              @if (isAdmin()) {
+                <select id="idNodo" formControlName="idNodo">
+                  <option [ngValue]="null">Sin nodo (solo Admin)</option>
+                  @for (n of catalogos().nodos; track n.idNodo) {
+                    <option [ngValue]="n.idNodo">{{ n.nombre }}</option>
+                  }
+                </select>
+              } @else {
+                <select id="idNodo" formControlName="idNodo" [attr.disabled]="true">
+                  @for (n of catalogos().nodos; track n.idNodo) {
+                    <option [ngValue]="n.idNodo">{{ n.nombre }}</option>
+                  }
+                </select>
+              }
+            </div>
+
+            <div class="form-group full-width">
+              <label for="password">
+                {{ usuarioEditando() ? 'Nueva contraseña (opcional)' : 'Contraseña *' }}
+              </label>
+              <input
+                id="password"
+                type="password"
+                formControlName="password"
+                [placeholder]="usuarioEditando() ? 'Dejar vacío para conservar la actual' : 'Mínimo 6 caracteres'"
+              />
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
+            <button type="submit" class="btn-primary" [disabled]="guardando()">
+              {{ guardando() ? 'Guardando...' : (usuarioEditando() ? 'Actualizar' : 'Crear usuario') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>

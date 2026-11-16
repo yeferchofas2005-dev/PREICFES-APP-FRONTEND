@@ -28,6 +28,7 @@ import { AuthService } from '../../../core/services/auth.service';
           <h2>{{ title() }}</h2>
           <p>{{ subtitle() }}</p>
         </section>
+        <ng-content />
       </main>
     </div>
   `,
