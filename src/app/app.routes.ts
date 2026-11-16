@@ -26,19 +26,45 @@ export const routes: Routes = [
     path: 'coordinador',
     canActivate: [authGuard, roleGuard],
     data: { roles: ['DIRECTIVO'] },
-    loadComponent: () =>
-      import('./features/coordinador/dashboard/coordinador-dashboard.component').then(
-        m => m.CoordinadorDashboardComponent
-      )
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/coordinador/dashboard/coordinador-dashboard.component').then(
+            m => m.CoordinadorDashboardComponent
+          )
+      },
+      {
+        path: 'usuarios',
+        data: { scope: 'directivo' },
+        loadComponent: () =>
+          import('./features/users/user-management.component').then(
+            m => m.UserManagementComponent
+          )
+      }
+    ]
   },
   {
     path: 'admin',
     canActivate: [authGuard, roleGuard],
     data: { roles: ['ADMIN'] },
-    loadComponent: () =>
-      import('./features/admin/dashboard/admin-dashboard.component').then(
-        m => m.AdminDashboardComponent
-      )
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/admin/dashboard/admin-dashboard.component').then(
+            m => m.AdminDashboardComponent
+          )
+      },
+      {
+        path: 'usuarios',
+        data: { scope: 'admin' },
+        loadComponent: () =>
+          import('./features/users/user-management.component').then(
+            m => m.UserManagementComponent
+          )
+      }
+    ]
   },
   {
     path: '',
