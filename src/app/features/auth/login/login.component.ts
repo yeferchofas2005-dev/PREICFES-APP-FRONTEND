@@ -1,6 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -10,7 +11,7 @@ import { AuthService } from '../../../core/services/auth.service';
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private router = inject(Router);
@@ -20,47 +21,51 @@ export class LoginComponent {
     password: ['', [Validators.required, Validators.minLength(6)]]
   });
 
-  isLoading = false;
-  errorMessage = '';
+  isLoading = signal(false);
+  errorMessage = signal('');
+
+  ngOnInit(): void {
+    if (this.authService.isAuthenticated()) {
+      const roleName = this.authService.currentUser()?.rol?.nombre;
+      const targetRoute = this.authService.getHomeRouteByRole(roleName);
+      if (targetRoute !== '/auth/login') {
+        this.router.navigate([targetRoute]);
+      }
+    }
+  }
 
   onSubmit(): void {
-    if (this.loginForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
-      
-      const credentials = {
-        correo: this.loginForm.get('email')?.value,
-        password: this.loginForm.get('password')?.value
-      };
-
-      this.authService.login(credentials).subscribe({
-        next: (res) => {
-          this.isLoading = false;
-          // Determine where to route based on role
-          const roleName = res.usuario.rol.nombre;
-          if (roleName === 'ESTUDIANTE') {
-            this.router.navigate(['/student']);
-            console.log('Login exitoso: ESTUDIANTE');
-          } else if (roleName === 'PROFESOR') {
-            // Future route: this.router.navigate(['/teacher']);
-            console.log('Login exitoso: PROFESOR');
-          } else if (roleName === 'ADMIN') {
-            // Future route: this.router.navigate(['/admin']);
-            console.log('Login exitoso: ADMIN');
-          } else if (roleName === 'DIRECTIVO') {
-            // Future route: this.router.navigate(['/director']);
-            console.log('Login exitoso: DIRECTIVO');
-          } else {
-            console.log('Login exitoso pero rol desconocido');
-          }
-        },
-        error: (err) => {
-          this.isLoading = false;
-          this.errorMessage = 'Credenciales inválidas o error en el servidor.';
-        }
-      });
-    } else {
+    if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
+      return;
     }
+
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    const credentials = {
+      correo: this.loginForm.get('email')?.value,
+      password: this.loginForm.get('password')?.value
+    };
+
+    this.authService.login(credentials).subscribe({
+      next: (res) => {
+        this.isLoading.set(false);
+        const targetRoute = this.authService.getHomeRouteByRole(res.usuario?.rol?.nombre);
+        if (targetRoute === '/auth/login') {
+          this.errorMessage.set('Tu usuario no tiene un rol válido asignado.');
+          return;
+        }
+        this.router.navigate([targetRoute]);
+      },
+      error: (err: unknown) => {
+        this.isLoading.set(false);
+        if (err instanceof HttpErrorResponse && err.status === 401) {
+          this.errorMessage.set('Correo o contraseña incorrectos, o el usuario está inactivo.');
+        } else {
+          this.errorMessage.set('Error al conectar con el servidor. Intenta nuevamente.');
+        }
+      }
+    });
   }
 }
