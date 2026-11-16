@@ -5,9 +5,9 @@
         <h1>Iniciar sesión</h1>
         <p class="login-subtitle">Bienvenido de nuevo</p>
 
-        @if (errorMessage) {
+        @if (errorMessage()) {
             <div class="error-alert">
-                {{ errorMessage }}
+                {{ errorMessage() }}
             </div>
         }
 
@@ -40,8 +40,8 @@
                 }
             </div>
 
-            <button type="submit" class="btn-login" [disabled]="isLoading">
-                {{ isLoading ? 'Cargando...' : 'Iniciar sesión' }}
+            <button type="submit" class="btn-login" [disabled]="isLoading()">
+                {{ isLoading() ? 'Cargando...' : 'Iniciar sesión' }}
             </button>
         </form>
 
