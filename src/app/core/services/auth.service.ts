@@ -50,6 +50,10 @@ export class AuthService {
     const storedUser = localStorage.getItem('auth_user');
     
     if (storedToken && storedUser) {
+      if (this.isTokenExpired(storedToken)) {
+        this.logout();
+        return;
+      }
       this.token.set(storedToken);
       try {
         this.currentUser.set(JSON.parse(storedUser));
@@ -60,6 +64,43 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return this.token() !== null;
+    const currentToken = this.token();
+    if (!currentToken) {
+      return false;
+    }
+    if (this.isTokenExpired(currentToken)) {
+      this.logout();
+      return false;
+    }
+    return true;
+  }
+
+  getHomeRouteByRole(roleName?: string): string {
+    switch (roleName?.toUpperCase()) {
+      case 'ESTUDIANTE':
+        return '/student';
+      case 'PROFESOR':
+        return '/profesor';
+      case 'DIRECTIVO':
+        return '/coordinador';
+      case 'ADMIN':
+        return '/admin';
+      default:
+        return '/auth/login';
+    }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+      const payload = JSON.parse(atob(padded)) as { exp?: number };
+      if (!payload.exp) return false;
+      return Date.now() >= payload.exp * 1000;
+    } catch {
+      return true;
+    }
   }
 }
