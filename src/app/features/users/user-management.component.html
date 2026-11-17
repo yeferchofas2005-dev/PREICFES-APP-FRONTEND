@@ -8,6 +8,7 @@
       </div>
     </div>
     <div class="header-right">
+      <button type="button" class="btn-outline" (click)="abrirModalMasivo()">Carga masiva (.xlsx)</button>
       <button type="button" class="btn-primary" (click)="abrirModalCrear()">+ Nuevo usuario</button>
       <button type="button" class="btn-outline" (click)="logout()">Cerrar sesión</button>
     </div>
@@ -247,6 +248,101 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  }
+
+  @if (modalMasivoAbierto()) {
+    <div class="modal-backdrop" (click)="cerrarModalMasivo()">
+      <div class="modal-card modal-wide" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Carga masiva de estudiantes (.xlsx)</h2>
+          <button type="button" class="btn-close" (click)="cerrarModalMasivo()">✕</button>
+        </div>
+
+        <p class="bulk-hint">
+          Sube un archivo <strong>.xlsx</strong> con las columnas <code>nombres, apellidos, documento, correo, telefono, grupo_salon, password</code>.
+          Si <code>password</code> viene vacío, se asignará el número de documento como contraseña inicial.
+        </p>
+
+        <div class="bulk-toolbar">
+          <button type="button" class="btn-secondary" [disabled]="descargandoPlantilla()" (click)="descargarPlantilla()">
+            {{ descargandoPlantilla() ? 'Descargando...' : 'Descargar plantilla .xlsx' }}
+          </button>
+        </div>
+
+        @if (errorMasivo()) {
+          <div class="alert alert-error">{{ errorMasivo() }}</div>
+        }
+
+        <div class="form-grid">
+          @if (isAdmin()) {
+            <div class="form-group full-width">
+              <label for="nodoMasivo">Nodo destino *</label>
+              <select
+                id="nodoMasivo"
+                [value]="nodoMasivoId() ?? ''"
+                (change)="onNodoMasivoChange($any($event.target).value)"
+              >
+                <option value="">Seleccione un nodo</option>
+                @for (n of catalogos().nodos; track n.idNodo) {
+                  <option [value]="n.idNodo">{{ n.nombre }}</option>
+                }
+              </select>
+            </div>
+          } @else {
+            <div class="form-group full-width">
+              <label>Nodo destino</label>
+              <input type="text" [value]="catalogos().nodos[0]?.nombre || 'Mi nodo'" disabled />
+            </div>
+          }
+
+          <div class="form-group full-width">
+            <label for="archivoExcel">Archivo Excel (.xlsx) *</label>
+            <input id="archivoExcel" type="file" accept=".xlsx" (change)="onArchivoSeleccionado($event)" />
+          </div>
+        </div>
+
+        @if (resultadoMasivo(); as res) {
+          <div class="bulk-summary">
+            <div class="summary-chip">Procesadas: <strong>{{ res.totalFilasProcesadas }}</strong></div>
+            <div class="summary-chip ok">Exitosas: <strong>{{ res.exitosos }}</strong></div>
+            <div class="summary-chip warn">Con error: <strong>{{ res.fallidos }}</strong></div>
+            <div class="summary-chip">Vinculados a grupo: <strong>{{ res.vinculadosAGrupo }}</strong></div>
+          </div>
+
+          @if (res.errores.length > 0) {
+            <div class="bulk-errors-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fila</th>
+                    <th>Documento</th>
+                    <th>Correo</th>
+                    <th>Motivo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (err of res.errores; track err.fila + '-' + err.documento + '-' + err.motivo) {
+                    <tr>
+                      <td>{{ err.fila }}</td>
+                      <td>{{ err.documento || '—' }}</td>
+                      <td>{{ err.correo || '—' }}</td>
+                      <td>{{ err.motivo }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        }
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="cerrarModalMasivo()">Cerrar</button>
+          <button type="button" class="btn-primary" [disabled]="cargandoMasivo()" (click)="ejecutarCargaMasiva()">
+            {{ cargandoMasivo() ? 'Importando...' : 'Importar estudiantes' }}
+          </button>
+        </div>
       </div>
     </div>
   }

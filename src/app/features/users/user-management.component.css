@@ -350,6 +350,53 @@ th {
   margin-top: 1.25rem;
 }
 
+.modal-wide {
+  max-width: 720px;
+}
+
+.bulk-hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.45;
+}
+
+.bulk-toolbar {
+  margin-bottom: 1rem;
+}
+
+.bulk-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.summary-chip {
+  background: #f3f4f6;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.summary-chip.ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.summary-chip.warn {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.bulk-errors-table {
+  margin-top: 0.85rem;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
 @media (max-width: 640px) {
   .form-grid {
     grid-template-columns: 1fr;
