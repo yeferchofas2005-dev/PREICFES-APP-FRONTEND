@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  CargaMasivaUsuariosResponse,
   PaginaResponse,
   UserManagementScope,
   UsuarioActualizarRequest,
@@ -56,5 +57,24 @@ export class UserManagementService {
 
   cambiarEstado(scope: UserManagementScope, idUsuario: number, activo: boolean): Observable<UsuarioItem> {
     return this.http.patch<UsuarioItem>(`${this.baseUrl(scope)}/${idUsuario}/estado`, { activo });
+  }
+
+  descargarPlantilla(scope: UserManagementScope): Observable<Blob> {
+    return this.http.get(`${this.baseUrl(scope)}/plantilla-estudiantes`, {
+      responseType: 'blob'
+    });
+  }
+
+  cargarMasiva(
+    scope: UserManagementScope,
+    archivo: File,
+    idNodo?: number | null
+  ): Observable<CargaMasivaUsuariosResponse> {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    if (scope === 'admin' && idNodo != null) {
+      formData.append('idNodo', String(idNodo));
+    }
+    return this.http.post<CargaMasivaUsuariosResponse>(`${this.baseUrl(scope)}/carga-masiva`, formData);
   }
 }

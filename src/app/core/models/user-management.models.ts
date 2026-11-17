@@ -49,4 +49,19 @@ export interface UsuarioActualizarRequest {
   activo?: boolean;
 }
 
+export interface CargaMasivaError {
+  fila: number;
+  documento: string;
+  correo: string;
+  motivo: string;
+}
+
+export interface CargaMasivaUsuariosResponse {
+  totalFilasProcesadas: number;
+  exitosos: number;
+  fallidos: number;
+  vinculadosAGrupo: number;
+  errores: CargaMasivaError[];
+}
+
 export type UsuarioItem = Usuario;
