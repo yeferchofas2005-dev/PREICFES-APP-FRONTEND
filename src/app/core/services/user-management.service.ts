@@ -22,11 +22,8 @@ export class UserManagementService {
     return scope === 'admin' ? '/api/admin/usuarios' : '/api/directivo/usuarios';
   }
 
-  listar(scope: UserManagementScope, filtro: UsuarioFiltro): Observable<PaginaResponse<UsuarioItem>> {
-    let params = new HttpParams()
-      .set('page', String(filtro.page ?? 0))
-      .set('size', String(filtro.size ?? 10));
-
+  private buildFiltroParams(scope: UserManagementScope, filtro: UsuarioFiltro): HttpParams {
+    let params = new HttpParams();
     if (filtro.busqueda && filtro.busqueda.trim().length > 0) {
       params = params.set('busqueda', filtro.busqueda.trim());
     }
@@ -39,8 +36,23 @@ export class UserManagementService {
     if (filtro.activo !== undefined && filtro.activo !== null) {
       params = params.set('activo', String(filtro.activo));
     }
+    return params;
+  }
+
+  listar(scope: UserManagementScope, filtro: UsuarioFiltro): Observable<PaginaResponse<UsuarioItem>> {
+    const params = this.buildFiltroParams(scope, filtro)
+      .set('page', String(filtro.page ?? 0))
+      .set('size', String(filtro.size ?? 10));
 
     return this.http.get<PaginaResponse<UsuarioItem>>(this.baseUrl(scope), { params });
+  }
+
+  exportarExcel(scope: UserManagementScope, filtro: UsuarioFiltro): Observable<Blob> {
+    const params = this.buildFiltroParams(scope, filtro);
+    return this.http.get(`${this.baseUrl(scope)}/exportar`, {
+      params,
+      responseType: 'blob'
+    });
   }
 
   obtenerCatalogos(scope: UserManagementScope): Observable<UsuarioCatalogos> {
