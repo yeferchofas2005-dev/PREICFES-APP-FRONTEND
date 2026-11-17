@@ -57,6 +57,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   nodoMasivoId = signal<number | null>(null);
   cargandoMasivo = signal(false);
   descargandoPlantilla = signal(false);
+  exportando = signal(false);
   errorMasivo = signal('');
   resultadoMasivo = signal<CargaMasivaUsuariosResponse | null>(null);
 
@@ -337,18 +338,46 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     this.userMgmtService.descargarPlantilla(this.scope()).subscribe({
       next: (blob) => {
         this.descargandoPlantilla.set(false);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'plantilla_carga_estudiantes.xlsx';
-        link.click();
-        URL.revokeObjectURL(url);
+        this.dispararDescargaBlob(blob, 'plantilla_carga_estudiantes.xlsx');
       },
       error: (err: unknown) => {
         this.descargandoPlantilla.set(false);
         this.errorMasivo.set(this.extraerMensajeError(err, 'No se pudo descargar la plantilla Excel.'));
       }
     });
+  }
+
+  exportarExcel(): void {
+    this.exportando.set(true);
+    this.errorMensaje.set('');
+
+    this.userMgmtService
+      .exportarExcel(this.scope(), {
+        busqueda: this.filtroBusqueda(),
+        idRol: this.filtroIdRol(),
+        idNodo: this.filtroIdNodo(),
+        activo: this.filtroActivo()
+      })
+      .subscribe({
+        next: (blob) => {
+          this.exportando.set(false);
+          const nombreArchivo = this.isAdmin() ? 'usuarios_rumbo_a_la_u.xlsx' : 'usuarios_nodo.xlsx';
+          this.dispararDescargaBlob(blob, nombreArchivo);
+        },
+        error: (err: unknown) => {
+          this.exportando.set(false);
+          this.errorMensaje.set(this.extraerMensajeError(err, 'No se pudo exportar el archivo Excel.'));
+        }
+      });
+  }
+
+  private dispararDescargaBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   ejecutarCargaMasiva(): void {

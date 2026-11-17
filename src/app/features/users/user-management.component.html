@@ -8,6 +8,9 @@
       </div>
     </div>
     <div class="header-right">
+      <button type="button" class="btn-outline" [disabled]="exportando()" (click)="exportarExcel()">
+        {{ exportando() ? 'Exportando...' : 'Exportar (.xlsx)' }}
+      </button>
       <button type="button" class="btn-outline" (click)="abrirModalMasivo()">Carga masiva (.xlsx)</button>
       <button type="button" class="btn-primary" (click)="abrirModalCrear()">+ Nuevo usuario</button>
       <button type="button" class="btn-outline" (click)="logout()">Cerrar sesión</button>
