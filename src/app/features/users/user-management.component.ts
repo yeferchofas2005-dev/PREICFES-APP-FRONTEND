@@ -6,6 +6,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { UserManagementService } from '../../core/services/user-management.service';
 import {
+  CargaMasivaUsuariosResponse,
   UserManagementScope,
   UsuarioCatalogos,
   UsuarioItem
@@ -50,6 +51,14 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   modalAbierto = signal(false);
   usuarioEditando = signal<UsuarioItem | null>(null);
   modalError = signal('');
+
+  modalMasivoAbierto = signal(false);
+  archivoMasivo = signal<File | null>(null);
+  nodoMasivoId = signal<number | null>(null);
+  cargandoMasivo = signal(false);
+  descargandoPlantilla = signal(false);
+  errorMasivo = signal('');
+  resultadoMasivo = signal<CargaMasivaUsuariosResponse | null>(null);
 
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -294,6 +303,82 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     if (!idRol) return !this.isAdmin();
     const rol = this.catalogos().roles.find(r => r.idRol === Number(idRol));
     return rol?.nombre !== 'ADMIN';
+  }
+
+  abrirModalMasivo(): void {
+    this.archivoMasivo.set(null);
+    this.errorMasivo.set('');
+    this.resultadoMasivo.set(null);
+    const nodos = this.catalogos().nodos;
+    this.nodoMasivoId.set(!this.isAdmin() && nodos.length > 0 ? nodos[0].idNodo : null);
+    this.modalMasivoAbierto.set(true);
+  }
+
+  cerrarModalMasivo(): void {
+    this.modalMasivoAbierto.set(false);
+    this.errorMasivo.set('');
+  }
+
+  onArchivoSeleccionado(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files && input.files.length > 0 ? input.files[0] : null;
+    this.archivoMasivo.set(file);
+    this.errorMasivo.set('');
+  }
+
+  onNodoMasivoChange(valor: string): void {
+    this.nodoMasivoId.set(valor ? Number(valor) : null);
+  }
+
+  descargarPlantilla(): void {
+    this.descargandoPlantilla.set(true);
+    this.errorMasivo.set('');
+
+    this.userMgmtService.descargarPlantilla(this.scope()).subscribe({
+      next: (blob) => {
+        this.descargandoPlantilla.set(false);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'plantilla_carga_estudiantes.xlsx';
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err: unknown) => {
+        this.descargandoPlantilla.set(false);
+        this.errorMasivo.set(this.extraerMensajeError(err, 'No se pudo descargar la plantilla Excel.'));
+      }
+    });
+  }
+
+  ejecutarCargaMasiva(): void {
+    const file = this.archivoMasivo();
+    if (!file) {
+      this.errorMasivo.set('Selecciona un archivo .xlsx antes de importar.');
+      return;
+    }
+    if (this.isAdmin() && !this.nodoMasivoId()) {
+      this.errorMasivo.set('Selecciona el nodo destino para los estudiantes.');
+      return;
+    }
+
+    this.cargandoMasivo.set(true);
+    this.errorMasivo.set('');
+    this.resultadoMasivo.set(null);
+
+    this.userMgmtService.cargarMasiva(this.scope(), file, this.nodoMasivoId()).subscribe({
+      next: (res) => {
+        this.cargandoMasivo.set(false);
+        this.resultadoMasivo.set(res);
+        if (res.exitosos > 0) {
+          this.cargarUsuarios(0);
+        }
+      },
+      error: (err: unknown) => {
+        this.cargandoMasivo.set(false);
+        this.errorMasivo.set(this.extraerMensajeError(err, 'No se pudo procesar el archivo Excel.'));
+      }
+    });
   }
 
   private extraerMensajeError(err: unknown, fallback: string): string {
