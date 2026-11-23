@@ -35,6 +35,7 @@ export interface UsuarioCrearRequest {
   idRol: number;
   idNodo?: number | null;
   activo?: boolean;
+  enviarCredencialesPorCorreo?: boolean;
 }
 
 export interface UsuarioActualizarRequest {
@@ -47,6 +48,7 @@ export interface UsuarioActualizarRequest {
   idRol: number;
   idNodo?: number | null;
   activo?: boolean;
+  enviarCredencialesPorCorreo?: boolean;
 }
 
 export interface CargaMasivaError {
@@ -61,6 +63,7 @@ export interface CargaMasivaUsuariosResponse {
   exitosos: number;
   fallidos: number;
   vinculadosAGrupo: number;
+  encoladosParaEnvio: number;
   errores: CargaMasivaError[];
 }
 
