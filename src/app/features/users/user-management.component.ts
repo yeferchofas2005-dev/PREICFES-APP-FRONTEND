@@ -1,16 +1,73 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators
+} from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
+import { EnvioCredencialService } from '../../core/services/envio-credencial.service';
 import { UserManagementService } from '../../core/services/user-management.service';
+import {
+  EnvioCredencialItem,
+  EnvioCredencialResumen,
+  EstadoEnvioCredencial
+} from '../../core/models/envio-credencial.models';
 import {
   CargaMasivaUsuariosResponse,
   UserManagementScope,
   UsuarioCatalogos,
   UsuarioItem
 } from '../../core/models/user-management.models';
+
+const NOMBRE_PERSONA_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+(?:[\s'-][a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+)*$/;
+const DOCUMENTO_REGEX = /^[0-9]{5,20}$/;
+const CORREO_REGEX = /^[A-Za-zñÑ0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const TELEFONO_REGEX = /^\+?[0-9]{7,15}$/;
+
+function trimmedRequiredValidator(): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const val = control.value;
+    if (val === null || val === undefined) {
+      return { required: true };
+    }
+    return String(val).trim().length === 0 ? { required: true } : null;
+  };
+}
+
+function trimmedPatternValidator(regex: RegExp, errorKey: string): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const raw = control.value;
+    if (raw === null || raw === undefined) {
+      return null;
+    }
+    const trimmed = String(raw).trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+    return regex.test(trimmed) ? null : { [errorKey]: true };
+  };
+}
+
+function trimmedMinLengthValidator(minLength: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const raw = control.value;
+    if (raw === null || raw === undefined) {
+      return null;
+    }
+    const trimmed = String(raw).trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+    return trimmed.length >= minLength ? null : { minlengthTrim: { requiredLength: minLength } };
+  };
+}
 
 @Component({
   selector: 'app-user-management',
@@ -25,6 +82,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private userMgmtService = inject(UserManagementService);
+  private envioCredencialService = inject(EnvioCredencialService);
 
   scope = signal<UserManagementScope>('admin');
   isAdmin = computed(() => this.scope() === 'admin');
@@ -51,35 +109,57 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   modalAbierto = signal(false);
   usuarioEditando = signal<UsuarioItem | null>(null);
   modalError = signal('');
+  intentoGuardar = signal(false);
 
   modalMasivoAbierto = signal(false);
   archivoMasivo = signal<File | null>(null);
   nodoMasivoId = signal<number | null>(null);
+  encolarEnvioMasivo = signal(false);
   cargandoMasivo = signal(false);
   descargandoPlantilla = signal(false);
   exportando = signal(false);
   errorMasivo = signal('');
   resultadoMasivo = signal<CargaMasivaUsuariosResponse | null>(null);
 
+  resumenEnvio = signal<EnvioCredencialResumen | null>(null);
+  modalMonitorAbierto = signal(false);
+  confirmacionSinCorreoTipo = signal<'CREAR' | 'MASIVO' | null>(null);
+  registrosEnvio = signal<EnvioCredencialItem[]>([]);
+  monitorFiltroEstado = signal<EstadoEnvioCredencial | null>(null);
+  monitorPaginaActual = signal(0);
+  monitorTotalElementos = signal(0);
+  monitorTotalPaginas = signal(0);
+  cargandoMonitor = signal(false);
+  accionMonitorEnCurso = signal(false);
+  mensajeMonitor = signal('');
+  errorMonitor = signal('');
+
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private monitorInterval: ReturnType<typeof setInterval> | null = null;
+  private rolSub: Subscription | null = null;
 
   userForm = this.fb.group({
-    nombres: ['', [Validators.required, Validators.maxLength(100)]],
-    apellidos: ['', [Validators.required, Validators.maxLength(100)]],
-    documento: ['', [Validators.required, Validators.maxLength(20)]],
-    correo: ['', [Validators.required, Validators.email, Validators.maxLength(150)]],
-    telefono: ['', [Validators.maxLength(20)]],
+    nombres: ['', [trimmedRequiredValidator(), Validators.maxLength(100), trimmedPatternValidator(NOMBRE_PERSONA_REGEX, 'formatoNombre')]],
+    apellidos: ['', [trimmedRequiredValidator(), Validators.maxLength(100), trimmedPatternValidator(NOMBRE_PERSONA_REGEX, 'formatoNombre')]],
+    documento: ['', [trimmedRequiredValidator(), trimmedPatternValidator(DOCUMENTO_REGEX, 'formatoDocumento')]],
+    correo: ['', [trimmedRequiredValidator(), Validators.maxLength(150), trimmedPatternValidator(CORREO_REGEX, 'formatoCorreo')]],
+    telefono: ['', [trimmedPatternValidator(TELEFONO_REGEX, 'formatoTelefono')]],
     password: [''],
     idRol: [null as number | null, [Validators.required]],
     idNodo: [null as number | null],
-    activo: [true]
+    activo: [true],
+    enviarCredencialesPorCorreo: [false]
   });
 
   ngOnInit(): void {
     const routeScope = (this.route.snapshot.data['scope'] as UserManagementScope | undefined) ?? 'admin';
     this.scope.set(routeScope);
+    this.rolSub = this.userForm.controls.idRol.valueChanges.subscribe(() => {
+      this.actualizarValidadorNodo();
+    });
     this.cargarCatalogos();
     this.cargarUsuarios(0);
+    this.cargarResumenEnvios();
   }
 
   ngOnDestroy(): void {
@@ -87,6 +167,11 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+    if (this.rolSub) {
+      this.rolSub.unsubscribe();
+      this.rolSub = null;
+    }
+    this.detenerPollingMonitor();
   }
 
   cargarCatalogos(): void {
@@ -162,6 +247,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   abrirModalCrear(): void {
     this.usuarioEditando.set(null);
     this.modalError.set('');
+    this.intentoGuardar.set(false);
     const nodos = this.catalogos().nodos;
     const defaultNodo = !this.isAdmin() && nodos.length > 0 ? nodos[0].idNodo : null;
     const roles = this.catalogos().roles;
@@ -176,17 +262,24 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       password: '',
       idRol: defaultRol,
       idNodo: defaultNodo,
-      activo: true
+      activo: true,
+      enviarCredencialesPorCorreo: false
     });
 
-    this.userForm.controls.password.setValidators([Validators.required, Validators.minLength(6), Validators.maxLength(100)]);
+    this.userForm.controls.password.setValidators([
+      trimmedRequiredValidator(),
+      trimmedMinLengthValidator(6),
+      Validators.maxLength(100)
+    ]);
     this.userForm.controls.password.updateValueAndValidity();
+    this.actualizarValidadorNodo();
     this.modalAbierto.set(true);
   }
 
   abrirModalEditar(usuario: UsuarioItem): void {
     this.usuarioEditando.set(usuario);
     this.modalError.set('');
+    this.intentoGuardar.set(false);
 
     this.userForm.reset({
       nombres: usuario.nombres,
@@ -197,22 +290,37 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       password: '',
       idRol: usuario.rol?.idRol ?? null,
       idNodo: usuario.nodo?.idNodo ?? null,
-      activo: usuario.activo
+      activo: usuario.activo,
+      enviarCredencialesPorCorreo: false
     });
 
-    this.userForm.controls.password.setValidators([Validators.minLength(6), Validators.maxLength(100)]);
+    this.userForm.controls.password.setValidators([
+      trimmedMinLengthValidator(6),
+      Validators.maxLength(100)
+    ]);
     this.userForm.controls.password.updateValueAndValidity();
+    this.actualizarValidadorNodo();
     this.modalAbierto.set(true);
   }
 
   cerrarModal(): void {
+    this.confirmacionSinCorreoTipo.set(null);
+    this.intentoGuardar.set(false);
     this.modalAbierto.set(false);
     this.modalError.set('');
   }
 
-  guardarUsuario(): void {
+  guardarUsuario(omitirConfirmacionCorreo = false): void {
+    this.actualizarValidadorNodo();
     if (this.userForm.invalid) {
+      this.intentoGuardar.set(true);
       this.userForm.markAllAsTouched();
+      const faltantes = this.obtenerEtiquetasCamposInvalidos();
+      this.modalError.set(
+        faltantes.length > 0
+          ? `Revisa los siguientes campos antes de continuar: ${faltantes.join(', ')}.`
+          : 'Revisa los campos marcados en rojo antes de continuar.'
+      );
       return;
     }
 
@@ -222,6 +330,11 @@ export class UserManagementComponent implements OnInit, OnDestroy {
 
     if (editando && passwordTrim.length > 0 && passwordTrim.length < 6) {
       this.modalError.set('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (!editando && !raw.enviarCredencialesPorCorreo && !omitirConfirmacionCorreo) {
+      this.confirmacionSinCorreoTipo.set('CREAR');
       return;
     }
 
@@ -247,7 +360,8 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         })
       : this.userMgmtService.crear(this.scope(), {
           ...payloadBase,
-          password: passwordTrim
+          password: passwordTrim,
+          enviarCredencialesPorCorreo: Boolean(raw.enviarCredencialesPorCorreo)
         });
 
     obs$.subscribe({
@@ -256,6 +370,9 @@ export class UserManagementComponent implements OnInit, OnDestroy {
         this.cerrarModal();
         this.exitoMensaje.set(editando ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
         this.cargarUsuarios(editando ? this.paginaActual() : 0);
+        if (!editando && raw.enviarCredencialesPorCorreo) {
+          this.cargarResumenEnvios();
+        }
       },
       error: (err: unknown) => {
         this.guardando.set(false);
@@ -306,8 +423,78 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     return rol?.nombre !== 'ADMIN';
   }
 
+  errorCampo(
+    campo: 'nombres' | 'apellidos' | 'documento' | 'telefono' | 'correo' | 'idRol' | 'idNodo' | 'password'
+  ): string {
+    const control = this.userForm.controls[campo];
+    if (!control || !control.invalid || !(control.touched || this.intentoGuardar())) {
+      return '';
+    }
+    const errors = control.errors;
+    if (!errors) return '';
+
+    if (errors['required']) {
+      switch (campo) {
+        case 'nombres': return 'Los nombres son obligatorios.';
+        case 'apellidos': return 'Los apellidos son obligatorios.';
+        case 'documento': return 'El documento es obligatorio.';
+        case 'correo': return 'El correo electrónico es obligatorio.';
+        case 'idRol': return 'Debes seleccionar un rol.';
+        case 'idNodo': return 'Debes asignar un nodo para este rol.';
+        case 'password': return 'La contraseña es obligatoria.';
+        default: return 'Este campo es obligatorio.';
+      }
+    }
+    if (errors['formatoNombre']) {
+      return 'Solo debe contener letras y espacios.';
+    }
+    if (errors['formatoDocumento']) {
+      return 'Solo se permiten números (entre 5 y 20 dígitos).';
+    }
+    if (errors['formatoCorreo']) {
+      return 'Ingresa un correo válido (ej: nombre@dominio.com).';
+    }
+    if (errors['formatoTelefono']) {
+      return 'Solo se permiten números (7 a 15 dígitos, opcional + inicial).';
+    }
+    if (errors['minlengthTrim']) {
+      return 'La contraseña debe tener al menos 6 caracteres.';
+    }
+    if (errors['maxlength']) {
+      return `Supera la longitud máxima permitida (${errors['maxlength'].requiredLength} caracteres).`;
+    }
+    return 'Valor inválido.';
+  }
+
+  private actualizarValidadorNodo(): void {
+    const nodoCtrl = this.userForm.controls.idNodo;
+    if (this.rolSeleccionadoRequiereNodo()) {
+      nodoCtrl.setValidators([Validators.required]);
+    } else {
+      nodoCtrl.clearValidators();
+    }
+    nodoCtrl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private obtenerEtiquetasCamposInvalidos(): string[] {
+    const mapa: Array<[keyof typeof this.userForm.controls, string]> = [
+      ['nombres', 'Nombres'],
+      ['apellidos', 'Apellidos'],
+      ['documento', 'Documento'],
+      ['telefono', 'Teléfono'],
+      ['correo', 'Correo'],
+      ['idRol', 'Rol'],
+      ['idNodo', 'Nodo'],
+      ['password', 'Contraseña']
+    ];
+    return mapa
+      .filter(([key]) => this.userForm.controls[key].invalid)
+      .map(([, label]) => label);
+  }
+
   abrirModalMasivo(): void {
     this.archivoMasivo.set(null);
+    this.encolarEnvioMasivo.set(false);
     this.errorMasivo.set('');
     this.resultadoMasivo.set(null);
     const nodos = this.catalogos().nodos;
@@ -316,6 +503,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
   }
 
   cerrarModalMasivo(): void {
+    this.confirmacionSinCorreoTipo.set(null);
     this.modalMasivoAbierto.set(false);
     this.errorMasivo.set('');
   }
@@ -380,7 +568,7 @@ export class UserManagementComponent implements OnInit, OnDestroy {
     URL.revokeObjectURL(url);
   }
 
-  ejecutarCargaMasiva(): void {
+  ejecutarCargaMasiva(omitirConfirmacionCorreo = false): void {
     const file = this.archivoMasivo();
     if (!file) {
       this.errorMasivo.set('Selecciona un archivo .xlsx antes de importar.');
@@ -391,27 +579,181 @@ export class UserManagementComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.encolarEnvioMasivo() && !omitirConfirmacionCorreo) {
+      this.confirmacionSinCorreoTipo.set('MASIVO');
+      return;
+    }
+
     this.cargandoMasivo.set(true);
     this.errorMasivo.set('');
     this.resultadoMasivo.set(null);
 
-    this.userMgmtService.cargarMasiva(this.scope(), file, this.nodoMasivoId()).subscribe({
+    this.userMgmtService
+      .cargarMasiva(this.scope(), file, this.nodoMasivoId(), this.encolarEnvioMasivo())
+      .subscribe({
+        next: (res) => {
+          this.cargandoMasivo.set(false);
+          this.resultadoMasivo.set(res);
+          if (res.exitosos > 0) {
+            this.cargarUsuarios(0);
+          }
+          if (res.encoladosParaEnvio > 0) {
+            this.cargarResumenEnvios();
+          }
+        },
+        error: (err: unknown) => {
+          this.cargandoMasivo.set(false);
+          this.errorMasivo.set(this.extraerMensajeError(err, 'No se pudo procesar el archivo Excel.'));
+        }
+      });
+  }
+
+  cancelarConfirmacionSinCorreo(): void {
+    this.confirmacionSinCorreoTipo.set(null);
+  }
+
+  continuarSinEnviarCorreo(): void {
+    const tipo = this.confirmacionSinCorreoTipo();
+    this.confirmacionSinCorreoTipo.set(null);
+    if (tipo === 'CREAR') {
+      this.guardarUsuario(true);
+    } else if (tipo === 'MASIVO') {
+      this.ejecutarCargaMasiva(true);
+    }
+  }
+
+  activarCorreoYContinuar(): void {
+    const tipo = this.confirmacionSinCorreoTipo();
+    this.confirmacionSinCorreoTipo.set(null);
+    if (tipo === 'CREAR') {
+      this.userForm.controls.enviarCredencialesPorCorreo.setValue(true);
+      this.guardarUsuario(true);
+    } else if (tipo === 'MASIVO') {
+      this.encolarEnvioMasivo.set(true);
+      this.ejecutarCargaMasiva(true);
+    }
+  }
+
+  cargarResumenEnvios(): void {
+    this.envioCredencialService.obtenerResumen(this.scope()).subscribe({
       next: (res) => {
-        this.cargandoMasivo.set(false);
-        this.resultadoMasivo.set(res);
-        if (res.exitosos > 0) {
-          this.cargarUsuarios(0);
+        this.resumenEnvio.set(res);
+        if (res.loteEnProceso || this.modalMonitorAbierto()) {
+          this.asegurarPollingMonitor();
+        } else {
+          this.detenerPollingMonitor();
         }
       },
-      error: (err: unknown) => {
-        this.cargandoMasivo.set(false);
-        this.errorMasivo.set(this.extraerMensajeError(err, 'No se pudo procesar el archivo Excel.'));
+      error: () => {
+        // Silencioso en la barra superior para no bloquear la gestion de usuarios
       }
     });
   }
 
+  abrirModalMonitor(): void {
+    this.mensajeMonitor.set('');
+    this.errorMonitor.set('');
+    this.modalMonitorAbierto.set(true);
+    this.cargarResumenEnvios();
+    this.cargarRegistrosMonitor(0);
+    this.asegurarPollingMonitor();
+  }
+
+  cerrarModalMonitor(): void {
+    this.modalMonitorAbierto.set(false);
+    if (!this.resumenEnvio()?.loteEnProceso) {
+      this.detenerPollingMonitor();
+    }
+  }
+
+  cargarRegistrosMonitor(pagina = this.monitorPaginaActual()): void {
+    this.cargandoMonitor.set(true);
+    this.envioCredencialService
+      .listarRegistros(this.scope(), this.monitorFiltroEstado(), pagina, 8)
+      .subscribe({
+        next: (res) => {
+          this.registrosEnvio.set(res.contenido);
+          this.monitorPaginaActual.set(res.paginaActual);
+          this.monitorTotalElementos.set(res.totalElementos);
+          this.monitorTotalPaginas.set(res.totalPaginas);
+          this.cargandoMonitor.set(false);
+        },
+        error: (err: unknown) => {
+          this.cargandoMonitor.set(false);
+          this.errorMonitor.set(this.extraerMensajeError(err, 'No se pudo cargar el detalle de envíos.'));
+        }
+      });
+  }
+
+  onMonitorEstadoChange(valor: string): void {
+    this.monitorFiltroEstado.set(valor ? (valor as EstadoEnvioCredencial) : null);
+    this.cargarRegistrosMonitor(0);
+  }
+
+  procesarLoteHoy(): void {
+    this.accionMonitorEnCurso.set(true);
+    this.mensajeMonitor.set('');
+    this.errorMonitor.set('');
+
+    this.envioCredencialService.procesarLote(this.scope()).subscribe({
+      next: (res) => {
+        this.accionMonitorEnCurso.set(false);
+        this.mensajeMonitor.set(res.mensaje);
+        this.cargarResumenEnvios();
+        this.cargarRegistrosMonitor(0);
+      },
+      error: (err: unknown) => {
+        this.accionMonitorEnCurso.set(false);
+        this.errorMonitor.set(this.extraerMensajeError(err, 'No se pudo iniciar el lote de envíos.'));
+      }
+    });
+  }
+
+  reintentarFallidos(): void {
+    this.accionMonitorEnCurso.set(true);
+    this.mensajeMonitor.set('');
+    this.errorMonitor.set('');
+
+    this.envioCredencialService.reintentarFallidos(this.scope()).subscribe({
+      next: (res) => {
+        this.accionMonitorEnCurso.set(false);
+        this.mensajeMonitor.set(res.mensaje);
+        this.cargarResumenEnvios();
+        this.cargarRegistrosMonitor(0);
+      },
+      error: (err: unknown) => {
+        this.accionMonitorEnCurso.set(false);
+        this.errorMonitor.set(this.extraerMensajeError(err, 'No se pudieron reencolar los envíos fallidos.'));
+      }
+    });
+  }
+
+  private asegurarPollingMonitor(): void {
+    if (this.monitorInterval) return;
+    this.monitorInterval = setInterval(() => {
+      this.cargarResumenEnvios();
+      if (this.modalMonitorAbierto()) {
+        this.cargarRegistrosMonitor(this.monitorPaginaActual());
+      }
+    }, 5000);
+  }
+
+  private detenerPollingMonitor(): void {
+    if (this.monitorInterval) {
+      clearInterval(this.monitorInterval);
+      this.monitorInterval = null;
+    }
+  }
+
   private extraerMensajeError(err: unknown, fallback: string): string {
     if (err instanceof HttpErrorResponse) {
+      const valErrors = err.error?.validationErrors;
+      if (valErrors && typeof valErrors === 'object') {
+        const detalles = Object.values(valErrors).filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+        if (detalles.length > 0) {
+          return detalles.join(' · ');
+        }
+      }
       const msg = err.error?.message;
       if (typeof msg === 'string' && msg.trim().length > 0) {
         return msg;

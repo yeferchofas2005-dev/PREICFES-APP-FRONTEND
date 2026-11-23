@@ -80,10 +80,12 @@ export class UserManagementService {
   cargarMasiva(
     scope: UserManagementScope,
     archivo: File,
-    idNodo?: number | null
+    idNodo?: number | null,
+    encolarEnvio = false
   ): Observable<CargaMasivaUsuariosResponse> {
     const formData = new FormData();
     formData.append('archivo', archivo);
+    formData.append('encolarEnvio', String(encolarEnvio));
     if (scope === 'admin' && idNodo != null) {
       formData.append('idNodo', String(idNodo));
     }

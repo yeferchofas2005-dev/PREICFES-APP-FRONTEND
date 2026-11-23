@@ -18,6 +18,31 @@
   </header>
 
   <main class="mgmt-main">
+    @if (resumenEnvio(); as env) {
+      <button type="button" class="mail-banner" (click)="abrirModalMonitor()">
+        <div class="mail-banner-info">
+          <span class="mail-banner-title">
+            Envío de credenciales por correo
+            @if (env.loteEnProceso) {
+              <span class="live-dot">En proceso</span>
+            }
+          </span>
+          <span class="mail-banner-meta">
+            {{ env.enviados }} / {{ env.totalRegistros }} enviados ·
+            Pendientes: {{ env.pendientes }} ·
+            Cupo hoy: {{ env.enviadosHoyGlobal }} / {{ env.limiteDiario }}
+          </span>
+        </div>
+        <div class="mail-banner-progress">
+          <div class="progress-track">
+            <div class="progress-fill" [style.width.%]="env.porcentajeAvance"></div>
+          </div>
+          <span class="progress-percent">{{ env.porcentajeAvance }}%</span>
+          <span class="mail-banner-cta">Abrir monitor →</span>
+        </div>
+      </button>
+    }
+
     @if (exitoMensaje()) {
       <div class="alert alert-success">{{ exitoMensaje() }}</div>
     }
@@ -163,52 +188,90 @@
   </main>
 
   @if (modalAbierto()) {
-    <div class="modal-backdrop" (click)="cerrarModal()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-backdrop">
+      <div class="modal-card">
         <div class="modal-header">
           <h2>{{ usuarioEditando() ? 'Editar usuario' : 'Crear nuevo usuario' }}</h2>
-          <button type="button" class="btn-close" (click)="cerrarModal()">✕</button>
+          <button type="button" class="btn-close" aria-label="Cerrar" (click)="cerrarModal()">✕</button>
         </div>
 
         @if (modalError()) {
           <div class="alert alert-error">{{ modalError() }}</div>
         }
 
-        <form [formGroup]="userForm" (ngSubmit)="guardarUsuario()" class="modal-form">
+        <form [formGroup]="userForm" (ngSubmit)="guardarUsuario()" class="modal-form" novalidate>
           <div class="form-grid">
             <div class="form-group">
               <label for="nombres">Nombres *</label>
-              <input id="nombres" type="text" formControlName="nombres" />
+              <input id="nombres" type="text" formControlName="nombres" [class.input-invalid]="!!errorCampo('nombres')" />
+              @if (errorCampo('nombres'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
 
             <div class="form-group">
               <label for="apellidos">Apellidos *</label>
-              <input id="apellidos" type="text" formControlName="apellidos" />
+              <input id="apellidos" type="text" formControlName="apellidos" [class.input-invalid]="!!errorCampo('apellidos')" />
+              @if (errorCampo('apellidos'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
 
             <div class="form-group">
               <label for="documento">Documento *</label>
-              <input id="documento" type="text" formControlName="documento" />
+              <input
+                id="documento"
+                type="text"
+                inputmode="numeric"
+                formControlName="documento"
+                placeholder="Solo números (5 a 20 dígitos)"
+                [class.input-invalid]="!!errorCampo('documento')"
+              />
+              @if (errorCampo('documento'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
 
             <div class="form-group">
               <label for="telefono">Teléfono</label>
-              <input id="telefono" type="text" formControlName="telefono" />
+              <input
+                id="telefono"
+                type="text"
+                inputmode="tel"
+                formControlName="telefono"
+                placeholder="Opcional (ej: 3001234567)"
+                [class.input-invalid]="!!errorCampo('telefono')"
+              />
+              @if (errorCampo('telefono'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
 
             <div class="form-group full-width">
               <label for="correo">Correo electrónico *</label>
-              <input id="correo" type="email" formControlName="correo" />
+              <input
+                id="correo"
+                type="email"
+                formControlName="correo"
+                placeholder="usuario@dominio.com"
+                [class.input-invalid]="!!errorCampo('correo')"
+              />
+              @if (errorCampo('correo'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
 
             <div class="form-group">
               <label for="idRol">Rol *</label>
-              <select id="idRol" formControlName="idRol">
+              <select id="idRol" formControlName="idRol" [class.input-invalid]="!!errorCampo('idRol')">
                 <option [ngValue]="null">Seleccione un rol</option>
                 @for (r of catalogos().roles; track r.idRol) {
                   <option [ngValue]="r.idRol">{{ r.nombre }}</option>
                 }
               </select>
+              @if (errorCampo('idRol'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
 
             <div class="form-group">
@@ -216,18 +279,21 @@
                 Nodo {{ rolSeleccionadoRequiereNodo() ? '*' : '(Opcional)' }}
               </label>
               @if (isAdmin()) {
-                <select id="idNodo" formControlName="idNodo">
+                <select id="idNodo" formControlName="idNodo" [class.input-invalid]="!!errorCampo('idNodo')">
                   <option [ngValue]="null">Sin nodo (solo Admin)</option>
                   @for (n of catalogos().nodos; track n.idNodo) {
                     <option [ngValue]="n.idNodo">{{ n.nombre }}</option>
                   }
                 </select>
               } @else {
-                <select id="idNodo" formControlName="idNodo" [attr.disabled]="true">
+                <select id="idNodo" formControlName="idNodo" [attr.disabled]="true" [class.input-invalid]="!!errorCampo('idNodo')">
                   @for (n of catalogos().nodos; track n.idNodo) {
                     <option [ngValue]="n.idNodo">{{ n.nombre }}</option>
                   }
                 </select>
+              }
+              @if (errorCampo('idNodo'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
               }
             </div>
 
@@ -239,9 +305,22 @@
                 id="password"
                 type="password"
                 formControlName="password"
+                [class.input-invalid]="!!errorCampo('password')"
                 [placeholder]="usuarioEditando() ? 'Dejar vacío para conservar la actual' : 'Mínimo 6 caracteres'"
               />
+              @if (errorCampo('password'); as errMsg) {
+                <small class="field-error">{{ errMsg }}</small>
+              }
             </div>
+
+            @if (!usuarioEditando()) {
+              <div class="form-group full-width checkbox-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" formControlName="enviarCredencialesPorCorreo" />
+                  <span>Enviar credenciales por correo al usuario (si se alcanza el cupo de hoy, quedará en cola para mañana)</span>
+                </label>
+              </div>
+            }
           </div>
 
           <div class="modal-footer">
@@ -256,16 +335,16 @@
   }
 
   @if (modalMasivoAbierto()) {
-    <div class="modal-backdrop" (click)="cerrarModalMasivo()">
-      <div class="modal-card modal-wide" (click)="$event.stopPropagation()">
+    <div class="modal-backdrop">
+      <div class="modal-card modal-wide">
         <div class="modal-header">
           <h2>Carga masiva de estudiantes (.xlsx)</h2>
-          <button type="button" class="btn-close" (click)="cerrarModalMasivo()">✕</button>
+          <button type="button" class="btn-close" aria-label="Cerrar" (click)="cerrarModalMasivo()">✕</button>
         </div>
 
         <p class="bulk-hint">
           Sube un archivo <strong>.xlsx</strong> con las columnas <code>nombres, apellidos, documento, correo, telefono, grupo_salon, password</code>.
-          Si <code>password</code> viene vacío, se asignará el número de documento como contraseña inicial.
+          Si <code>password</code> viene vacío, se generará automáticamente una contraseña inicial segura.
         </p>
 
         <div class="bulk-toolbar">
@@ -304,6 +383,17 @@
             <label for="archivoExcel">Archivo Excel (.xlsx) *</label>
             <input id="archivoExcel" type="file" accept=".xlsx" (change)="onArchivoSeleccionado($event)" />
           </div>
+
+          <div class="form-group full-width checkbox-row">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="encolarEnvioMasivo()"
+                (change)="encolarEnvioMasivo.set($any($event.target).checked)"
+              />
+              <span>Encolar estudiantes creados para envío programado de credenciales por correo</span>
+            </label>
+          </div>
         </div>
 
         @if (resultadoMasivo(); as res) {
@@ -312,6 +402,7 @@
             <div class="summary-chip ok">Exitosas: <strong>{{ res.exitosos }}</strong></div>
             <div class="summary-chip warn">Con error: <strong>{{ res.fallidos }}</strong></div>
             <div class="summary-chip">Vinculados a grupo: <strong>{{ res.vinculadosAGrupo }}</strong></div>
+            <div class="summary-chip">Encolados correo: <strong>{{ res.encoladosParaEnvio }}</strong></div>
           </div>
 
           @if (res.errores.length > 0) {
@@ -344,6 +435,217 @@
           <button type="button" class="btn-secondary" (click)="cerrarModalMasivo()">Cerrar</button>
           <button type="button" class="btn-primary" [disabled]="cargandoMasivo()" (click)="ejecutarCargaMasiva()">
             {{ cargandoMasivo() ? 'Importando...' : 'Importar estudiantes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (modalMonitorAbierto()) {
+    <div class="modal-backdrop">
+      <div class="modal-card modal-monitor">
+        <div class="modal-header">
+          <h2>Monitor de envío de credenciales</h2>
+          <button type="button" class="btn-close" aria-label="Cerrar" (click)="cerrarModalMonitor()">✕</button>
+        </div>
+
+        @if (mensajeMonitor()) {
+          <div class="alert alert-success">{{ mensajeMonitor() }}</div>
+        }
+        @if (errorMonitor()) {
+          <div class="alert alert-error">{{ errorMonitor() }}</div>
+        }
+
+        @if (resumenEnvio(); as env) {
+          <div class="monitor-progress-box">
+            <div class="monitor-progress-header">
+              <span>Avance general ({{ isAdmin() ? 'Global' : 'Mi nodo' }})</span>
+              <strong>{{ env.porcentajeAvance }}% ({{ env.enviados }} de {{ env.totalRegistros }})</strong>
+            </div>
+            <div class="progress-track large">
+              <div class="progress-fill" [style.width.%]="env.porcentajeAvance"></div>
+            </div>
+            <p class="monitor-estimate">
+              Cupo diario global Gmail: <strong>{{ env.enviadosHoyGlobal }} / {{ env.limiteDiario }}</strong> enviados hoy
+              (disponibles hoy: <strong>{{ env.cupoRestanteHoy }}</strong>)
+              @if (env.diasEstimadosRestantes > 0) {
+                · Estimado restante: <strong>{{ env.diasEstimadosRestantes }} día(s)</strong>
+              }
+            </p>
+          </div>
+
+          <div class="monitor-kpis">
+            <div class="kpi-card ok">
+              <span class="kpi-label">Enviados</span>
+              <strong class="kpi-val">{{ env.enviados }}</strong>
+            </div>
+            <div class="kpi-card pending">
+              <span class="kpi-label">Pendientes</span>
+              <strong class="kpi-val">{{ env.pendientes }}</strong>
+            </div>
+            <div class="kpi-card error">
+              <span class="kpi-label">Fallidos</span>
+              <strong class="kpi-val">{{ env.fallidos }}</strong>
+            </div>
+            <div class="kpi-card quota">
+              <span class="kpi-label">Cupo hoy restante</span>
+              <strong class="kpi-val">{{ env.cupoRestanteHoy }}</strong>
+            </div>
+          </div>
+        }
+
+        <div class="monitor-actions">
+          <div class="monitor-buttons">
+            <button
+              type="button"
+              class="btn-primary"
+              [disabled]="accionMonitorEnCurso() || resumenEnvio()?.loteEnProceso"
+              (click)="procesarLoteHoy()"
+            >
+              {{ resumenEnvio()?.loteEnProceso ? 'Procesando lote...' : 'Procesar lote disponible hoy' }}
+            </button>
+            <button
+              type="button"
+              class="btn-secondary"
+              [disabled]="accionMonitorEnCurso()"
+              (click)="reintentarFallidos()"
+            >
+              Reintentar fallidos
+            </button>
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="cargarResumenEnvios(); cargarRegistrosMonitor()"
+            >
+              Actualizar
+            </button>
+          </div>
+
+          <div class="filter-field">
+            <select
+              [value]="monitorFiltroEstado() ?? ''"
+              (change)="onMonitorEstadoChange($any($event.target).value)"
+            >
+              <option value="">Todos los estados</option>
+              <option value="PENDIENTE">Pendientes</option>
+              <option value="ENVIADO">Enviados</option>
+              <option value="FALLIDO">Fallidos</option>
+            </select>
+          </div>
+        </div>
+
+        @if (cargandoMonitor()) {
+          <div class="empty-state">Cargando registros de envío...</div>
+        } @else if (registrosEnvio().length === 0) {
+          <div class="empty-state">No hay registros en la cola de envíos para el filtro seleccionado.</div>
+        } @else {
+          <div class="monitor-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Correo</th>
+                  <th>Nodo</th>
+                  <th>Prioridad</th>
+                  <th>Estado</th>
+                  <th>Intentos</th>
+                  <th>Detalle / Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (reg of registrosEnvio(); track reg.idEnvio) {
+                  <tr>
+                    <td>
+                      <div class="user-fullname">{{ reg.nombreCompleto }}</div>
+                      <div class="user-phone">Doc: {{ reg.documento }}</div>
+                    </td>
+                    <td>{{ reg.correo }}</td>
+                    <td>{{ reg.nodo }}</td>
+                    <td>{{ reg.prioridad === 1 ? 'Manual' : 'Masiva' }}</td>
+                    <td>
+                      <span
+                        class="status-pill"
+                        [class.active]="reg.estado === 'ENVIADO'"
+                        [class.inactive]="reg.estado === 'FALLIDO'"
+                        [class.pending-pill]="reg.estado === 'PENDIENTE' || reg.estado === 'PROCESANDO'"
+                      >
+                        {{ reg.estado }}
+                      </span>
+                    </td>
+                    <td>{{ reg.intentos }}</td>
+                    <td class="detail-cell">
+                      @if (reg.ultimoError) {
+                        <span class="error-detail">{{ reg.ultimoError }}</span>
+                      } @else if (reg.fechaEnvio) {
+                        <span>Enviado: {{ reg.fechaEnvio }}</span>
+                      } @else {
+                        <span>Prog: {{ reg.fechaProgramada }}</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination-bar">
+            <span class="pagination-info">
+              Total: {{ monitorTotalElementos() }} · Página {{ monitorPaginaActual() + 1 }} de {{ monitorTotalPaginas() || 1 }}
+            </span>
+            <div class="pagination-buttons">
+              <button
+                type="button"
+                class="btn-secondary"
+                [disabled]="monitorPaginaActual() <= 0"
+                (click)="cargarRegistrosMonitor(monitorPaginaActual() - 1)"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                [disabled]="monitorPaginaActual() + 1 >= monitorTotalPaginas()"
+                (click)="cargarRegistrosMonitor(monitorPaginaActual() + 1)"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (confirmacionSinCorreoTipo(); as tipo) {
+    <div class="modal-backdrop modal-backdrop-top">
+      <div class="modal-card modal-confirm">
+        <div class="modal-header">
+          <h2>Envío de credenciales desactivado</h2>
+          <button type="button" class="btn-close" aria-label="Cerrar" (click)="cancelarConfirmacionSinCorreo()">✕</button>
+        </div>
+
+        <div class="confirm-warning-box">
+          <p>
+            @if (tipo === 'CREAR') {
+              No seleccionaste la opción <strong>"Enviar credenciales por correo al usuario"</strong>.
+              El usuario se creará en el sistema, pero no se le enviarán sus datos de acceso por correo electrónico.
+            } @else {
+              No seleccionaste la opción <strong>"Encolar estudiantes creados para envío programado de credenciales por correo"</strong>.
+              Los estudiantes importados se crearán en el sistema, pero no entrarán a la cola de envío de correos.
+            }
+          </p>
+          <p class="confirm-question">¿Cómo deseas continuar?</p>
+        </div>
+
+        <div class="modal-footer modal-confirm-footer">
+          <button type="button" class="btn-secondary" (click)="cancelarConfirmacionSinCorreo()">
+            Volver
+          </button>
+          <button type="button" class="btn-warning-outline" (click)="continuarSinEnviarCorreo()">
+            Continuar sin enviar
+          </button>
+          <button type="button" class="btn-primary" (click)="activarCorreoYContinuar()">
+            {{ tipo === 'CREAR' ? 'Activar envío y crear' : 'Activar envío e importar' }}
           </button>
         </div>
       </div>
