@@ -63,6 +63,13 @@ export const routes: Routes = [
           import('./features/users/user-management.component').then(
             m => m.UserManagementComponent
           )
+      },
+      {
+        path: 'parametros',
+        loadComponent: () =>
+          import('./features/admin/parametros/parametros-generales.component').then(
+            m => m.ParametrosGeneralesComponent
+          )
       }
     ]
   },

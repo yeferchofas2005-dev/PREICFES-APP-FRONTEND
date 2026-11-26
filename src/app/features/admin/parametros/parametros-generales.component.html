@@ -1,0 +1,316 @@
+<div class="params-wrapper">
+  <header class="params-header">
+    <div class="header-left">
+      <button type="button" class="btn-back" (click)="volverAlPanel()">← Panel</button>
+      <img src="assets/logo/logo.png" alt="Logo RumboALaU" class="brand-logo" />
+      <div class="brand-text">
+        <h1>Parámetros Generales</h1>
+        <span>Ajuste en tiempo real · Caché en RAM</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      @if (user(); as u) {
+        <div class="user-chip">
+          <div class="user-avatar">{{ userInitials() }}</div>
+          <div class="user-info">
+            <span class="user-name">{{ u.nombres }} {{ u.apellidos }}</span>
+            <span class="user-role">Administrador</span>
+          </div>
+        </div>
+      }
+      <button type="button" class="btn-ghost" (click)="cargarParametros()" [disabled]="cargando()">
+        ↻ Recargar
+      </button>
+      <button type="button" class="btn-logout" (click)="cerrarSesion()">⏻ Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="params-content">
+    <section class="toolbar-panel">
+      <div class="toolbar-top">
+        <div>
+          <span class="intro-badge">Épica 02 · HU-04</span>
+          <h2>Configuración del sistema</h2>
+          <p>
+            Ajusta los controles directamente con los deslizadores o interruptores y guarda cada
+            parámetro para invalidar el caché del servidor al instante.
+          </p>
+        </div>
+        <div class="summary-counters">
+          <div class="counter-box">
+            <strong>{{ totalParametros() }}</strong>
+            <span>Parámetros</span>
+          </div>
+          @if (cambiosPendientes() > 0) {
+            <div class="counter-box counter-pending">
+              <strong>{{ cambiosPendientes() }}</strong>
+              <span>Sin guardar</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="toolbar-filters">
+        <div class="filter-tabs" role="tablist">
+          <button
+            type="button"
+            class="filter-tab"
+            [class.active]="categoriaActiva() === 'TODAS'"
+            (click)="categoriaActiva.set('TODAS')"
+          >
+            Todos ({{ totalParametros() }})
+          </button>
+          <button
+            type="button"
+            class="filter-tab"
+            [class.active]="categoriaActiva() === 'SIMULACROS'"
+            (click)="categoriaActiva.set('SIMULACROS')"
+          >
+            Simulacros y Concurrencia
+          </button>
+          <button
+            type="button"
+            class="filter-tab"
+            [class.active]="categoriaActiva() === 'OPERACION'"
+            (click)="categoriaActiva.set('OPERACION')"
+          >
+            Operación y Caché
+          </button>
+          <button
+            type="button"
+            class="filter-tab"
+            [class.active]="categoriaActiva() === 'CORREO'"
+            (click)="categoriaActiva.set('CORREO')"
+          >
+            Mensajería SMTP
+          </button>
+        </div>
+
+        <div class="search-box">
+          <input
+            type="search"
+            placeholder="Buscar variable, nombre o descripción..."
+            [value]="busqueda()"
+            (input)="actualizarBusqueda($event)"
+          />
+        </div>
+      </div>
+    </section>
+
+    @if (mensajeExito()) {
+      <div class="alert alert-success" role="status">
+        <span>✓ {{ mensajeExito() }}</span>
+        <button type="button" class="alert-close" (click)="mensajeExito.set('')">×</button>
+      </div>
+    }
+
+    @if (mensajeError()) {
+      <div class="alert alert-error" role="alert">
+        <span>⚠ {{ mensajeError() }}</span>
+        <button type="button" class="alert-close" (click)="mensajeError.set('')">×</button>
+      </div>
+    }
+
+    @if (cargando()) {
+      <section class="state-card">
+        <p>Cargando parámetros generales...</p>
+      </section>
+    } @else if (gruposFiltrados().length === 0) {
+      <section class="state-card">
+        <p>No se encontraron parámetros con el filtro actual.</p>
+      </section>
+    } @else {
+      @for (grupo of gruposFiltrados(); track grupo.categoria) {
+        <section class="param-group">
+          <header class="group-header">
+            <div>
+              <h3>{{ grupo.titulo }}</h3>
+              <p>{{ grupo.subtitulo }}</p>
+            </div>
+            <span class="group-count">{{ grupo.items.length }}</span>
+          </header>
+
+          <div class="group-list">
+            @for (param of grupo.items; track param.clave) {
+              <div
+                class="param-row"
+                [class.dirty]="tieneCambioValor(param)"
+                [class.saving]="guardandoClave() === param.clave"
+              >
+                <div class="row-info">
+                  <div class="row-title-line">
+                    <h4>{{ etiquetaAmigable(param.clave) }}</h4>
+                    @if (tieneCambioValor(param)) {
+                      <span class="dirty-badge">Modificado</span>
+                    }
+                  </div>
+
+                  @if (editandoDescClave() === param.clave) {
+                    <div class="desc-editor">
+                      <textarea
+                        rows="2"
+                        [value]="borradorDescripcion()"
+                        (input)="onDescripcionInput($event)"
+                        placeholder="Describe el propósito de este parámetro..."
+                      ></textarea>
+                      <div class="desc-actions">
+                        <button
+                          type="button"
+                          class="btn-text"
+                          (click)="cancelarEdicionDescripcion()"
+                          [disabled]="guardandoClave() === param.clave"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-save-sm"
+                          (click)="guardarDescripcion(param)"
+                          [disabled]="guardandoClave() === param.clave"
+                        >
+                          {{ guardandoClave() === param.clave ? 'Guardando...' : 'Guardar descripción' }}
+                        </button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="desc-display">
+                      <p>{{ param.descripcion || 'Sin descripción registrada.' }}</p>
+                      <button
+                        type="button"
+                        class="btn-edit-desc"
+                        (click)="iniciarEdicionDescripcion(param)"
+                        title="Editar descripción"
+                      >
+                        ✎ Editar descripción
+                      </button>
+                    </div>
+                  }
+
+                  <div class="row-meta">
+                    <code class="meta-key">{{ param.clave }}</code>
+                    <span class="meta-dot">·</span>
+                    <span class="meta-date">
+                      @if (param.fechaActualizacion) {
+                        Actualizado {{ param.fechaActualizacion | date: 'dd/MM/yyyy HH:mm' }}
+                      } @else {
+                        Valor inicial
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                <div class="row-control">
+                  @if (param.tipo === 'BOOLEAN') {
+                    <div class="switch-row">
+                      <label class="switch">
+                        <input
+                          type="checkbox"
+                          [checked]="esBooleanoActivo(param)"
+                          (change)="onToggleBooleano(param, $event)"
+                          [disabled]="guardandoClave() === param.clave"
+                        />
+                        <span class="slider-track"></span>
+                      </label>
+                      <span class="switch-label" [class.active]="esBooleanoActivo(param)">
+                        {{ esBooleanoActivo(param) ? 'Activado' : 'Desactivado' }}
+                      </span>
+                    </div>
+                  } @else if (sliderDe(param); as slider) {
+                    <div class="slider-control">
+                      <div class="slider-row">
+                        <input
+                          type="range"
+                          class="range-input"
+                          [min]="slider.min"
+                          [max]="slider.max"
+                          [step]="slider.step"
+                          [value]="valorNumericoParaSlider(param)"
+                          (input)="onValorInput(param.clave, $event)"
+                          [disabled]="guardandoClave() === param.clave"
+                        />
+                      </div>
+
+                      <div class="numeric-stepper">
+                        <button
+                          type="button"
+                          class="step-btn"
+                          (click)="ajustarEntero(param, -slider.step)"
+                          [disabled]="guardandoClave() === param.clave"
+                          aria-label="Disminuir"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="text"
+                          class="number-input"
+                          [value]="valorActualDe(param)"
+                          (input)="onValorInput(param.clave, $event)"
+                          [disabled]="guardandoClave() === param.clave"
+                          [attr.aria-label]="etiquetaAmigable(param.clave)"
+                        />
+                        <button
+                          type="button"
+                          class="step-btn"
+                          (click)="ajustarEntero(param, slider.step)"
+                          [disabled]="guardandoClave() === param.clave"
+                          aria-label="Aumentar"
+                        >
+                          +
+                        </button>
+                        @if (unidadDe(param.clave)) {
+                          <span class="unit-label">{{ unidadDe(param.clave) }}</span>
+                        }
+                        @if (equivalenciaHumana(param); as equiv) {
+                          <span class="equiv-pill">≈ {{ equiv }}</span>
+                        }
+                      </div>
+
+                      <div class="range-limits">
+                        <span>Mín: {{ slider.min }}</span>
+                        <span>Máx sugerido: {{ slider.max }}</span>
+                      </div>
+                    </div>
+                  } @else {
+                    <input
+                      type="text"
+                      class="text-input"
+                      [value]="valorActualDe(param)"
+                      (input)="onValorInput(param.clave, $event)"
+                      [disabled]="guardandoClave() === param.clave"
+                    />
+                  }
+
+                  @if (errorDeValor(param); as errMsg) {
+                    <small class="control-error">{{ errMsg }}</small>
+                  }
+
+                  @if (tieneCambioValor(param)) {
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        class="btn-discard"
+                        (click)="descartarValor(param)"
+                        [disabled]="guardandoClave() === param.clave"
+                      >
+                        Descartar
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-save"
+                        (click)="guardarValor(param)"
+                        [disabled]="guardandoClave() === param.clave || !!errorDeValor(param)"
+                      >
+                        {{ guardandoClave() === param.clave ? 'Guardando...' : 'Guardar cambio' }}
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+    }
+  </main>
+</div>
